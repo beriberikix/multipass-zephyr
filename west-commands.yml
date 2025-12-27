@@ -1,0 +1,11 @@
+west-commands:
+  - file: scripts/west_commands/vbuild.py
+    commands:
+      - name: vbuild
+        class: VBuild
+        help: Build a native_sim target using a Multipass VM.
+  - file: scripts/west_commands/vrun.py
+    commands:
+      - name: vrun
+        class: VRun
+        help: Run a native_sim target using a Multipass VM.

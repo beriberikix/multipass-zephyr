@@ -1,0 +1,15 @@
+manifest:
+  self:
+    west-commands: west-commands.yml
+
+  # This is a minimal manifest to allow this repo to be used with 'west init'
+  # Real usage would typically involve adding this project to a larger manifest.
+  remotes:
+    - name: zephyrproject-rtos
+      url-base: https://github.com/zephyrproject-rtos
+  
+  projects:
+    - name: zephyr
+      remote: zephyrproject-rtos
+      revision: main
+      import: true
