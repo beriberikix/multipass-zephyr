@@ -31,6 +31,8 @@ class VBuild(WestCommand):
         parser.add_argument('-s', '--source-dir', help='Source directory to build')
         parser.add_argument('-d', '--build-dir', help='Build directory')
         parser.add_argument('-b', '--board', help='Board to build for')
+        parser.add_argument('--pull', '--sync', dest='pull', action='store_true', help='Pull build artifacts from VM to host after build')
+        parser.add_argument('-p', '--pristine', action='store_true', help='Remove existing build directory in VM before building')
 
         return parser
 
@@ -109,6 +111,8 @@ class VBuild(WestCommand):
             vm_build_dir = get_vm_path(os.path.abspath(args.build_dir))
         
         # Ensure internal build dir exists
+        if args.pristine:
+            vm.delete_dir(vm_build_dir)
         vm.exec_shell(f"mkdir -p {vm_build_dir}")
 
         # Suggested by user: run zephyr-export after mount
@@ -137,3 +141,22 @@ class VBuild(WestCommand):
             log.die(f"Build failed with return code {rc}")
         
         log.inf("Build completed successfully.")
+
+        if args.pull:
+            log.inf("Pulling artifacts to host...")
+            # Files to pull
+            artifacts = [
+                'zephyr/zephyr.elf',
+                'zephyr/zephyr.exe',
+                'zephyr/zephyr.bin',
+                'zephyr/zephyr.map',
+            ]
+            for art in artifacts:
+                vm_art_path = f"{vm_build_dir}/{art}"
+                host_art_path = os.path.join(build_dir, art)
+                
+                # Check if file exists in VM before pulling
+                check_cmd = f"multipass exec {vm.vm_name} -- test -f {vm_art_path}"
+                res = subprocess.run(check_cmd, shell=True, capture_output=True)
+                if res.returncode == 0:
+                    vm.pull_file(vm_art_path, host_art_path)

@@ -9,3 +9,8 @@ west-commands:
       - name: vrun
         class: VRun
         help: Run a native_sim target using a Multipass VM.
+  - file: west_commands/vclean.py
+    commands:
+      - name: vclean
+        class: VClean
+        help: Clean build directories in the Multipass VM.

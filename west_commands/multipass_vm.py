@@ -202,5 +202,18 @@ class MultipassVM:
             result = self._run_cmd(multipass_cmd, check=check)
             return result.stdout if check else result
 
+    def pull_file(self, vm_path, host_path):
+        print(f"Transferring {vm_path} from VM to {host_path}...")
+        # Ensure host directory exists
+        host_dir = os.path.dirname(os.path.abspath(host_path))
+        os.makedirs(host_dir, exist_ok=True)
+        
+        # Multipass transfer syntax: <vm_name>:<vm_path> <host_path>
+        self._run_cmd(['multipass', 'transfer', f"{self.vm_name}:{vm_path}", host_path])
+
+    def delete_dir(self, vm_path):
+        print(f"Deleting directory {vm_path} in VM...")
+        self.exec_shell(f"rm -rf {vm_path}")
+
     def is_multipass_installed(self):
         return shutil.which('multipass') is not None
