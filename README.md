@@ -38,17 +38,21 @@ Run `west update` to pull the project.
 Build a sample application:
 
 ```bash
-# On Apple Silicon:
+# Basic build
 west vbuild -b native_sim/native/64 zephyr/samples/hello_world
 
-# On Intel:
-west vbuild -b native_sim zephyr/samples/hello_world
+# Build and sync artifacts back to the host's build/ directory
+west vbuild --sync -b native_sim/native/64 zephyr/samples/hello_world
+
+# Pristine (clean) build
+west vbuild -p -b native_sim/native/64 zephyr/samples/hello_world
 ```
 
 The first run will automatically:
 1. Create a `zephyr-vm` Multipass instance.
-2. Install the Zephyr SDK and build dependencies.
-3. Mount your workspace root into the VM.
+2. **Auto-detect** the required Zephyr SDK version from your workspace's `SDK_VERSION` file and install it.
+3. Install all necessary build dependencies.
+4. Mount your workspace root into the VM.
 
 ### Running
 
@@ -58,13 +62,24 @@ Run the simulated application:
 west vrun zephyr/samples/hello_world
 ```
 
-You'll see the Zephyr boot banner and application output directly in your host terminal.
+### Cleaning
+
+Manage VM storage:
+
+```bash
+# Clean the build for the current project
+west vclean
+
+# Clean ALL proxy builds in the VM
+west vclean --all
+```
 
 ## How it Works
 
 - **Storage**: Builds are performed in the VM's internal filesystem (under `/home/ubuntu/builds/`) to ensure maximum speed and avoid permission issues common with network mounts.
-- **Hashing**: Source directory paths are hashed to generate unique build directories in the VM, allowing you to work on multiple projects simultaneously.
-- **Environment**: Automatically manages `ZEPHYR_BASE` and toolchain paths inside the VM.
+- **Hashing**: Source directory paths are hashed to generate unique build directories in the VM.
+- **SDK Auto-Detection**: Automatically reads the `SDK_VERSION` file from your Zephyr base directory to ensure the toolchain matches your project's requirements.
+- **Artifact Syncing**: Pulls key binaries (`zephyr.elf`, `zephyr.exe`, `zephyr.map`) back to your host when using the `--sync` flag.
 
 ## License
 
