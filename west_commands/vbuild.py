@@ -39,8 +39,6 @@ class VBuild(WestCommand):
         if not vm.is_multipass_installed():
             log.die("Multipass is not installed. Please install it from https://multipass.run/")
 
-        vm.ensure_vm()
-
         # Determine paths
         zephyr_base = os.environ.get('ZEPHYR_BASE')
         if not zephyr_base:
@@ -56,6 +54,8 @@ class VBuild(WestCommand):
             workspace_root = os.path.dirname(zephyr_base) # fallback
         
         workspace_root = str(Path(workspace_root).resolve())
+
+        vm.ensure_vm(zephyr_base)
 
         # Determine source and build dirs
         source_dir = args.source_dir

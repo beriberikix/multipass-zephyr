@@ -63,32 +63,38 @@ class MultipassVM:
         print("  [VM] Dependencies and SDK verified.")
         return True
 
-    def ensure_vm(self):
+    def ensure_vm(self, zephyr_base_path=None):
         status = self.get_status()
         if status == 'not-found':
-            print(f"Creating VM '{self.vm_name}' (Ubuntu {self.ubuntu_version})...")
-            self._run_cmd([
-                'multipass', 'launch',
-                '--name', self.vm_name,
-                '--cpus', str(self.cpus),
-                '--memory', self.memory,
-                '--disk', self.disk,
-                self.ubuntu_version
-            ])
-            self._setup_vm()
-        else:
-            if status == 'stopped':
-                print(f"Starting VM '{self.vm_name}'...")
-                self._run_cmd(['multipass', 'start', self.vm_name])
-            
-            print("Verifying VM setup...")
+            print(f"Creating Multipass VM '{self.vm_name}'...")
+            self._run_cmd(['multipass', 'launch', '24.04', '--name', self.vm_name, '--cpus', '2', '--mem', '4G', '--disk', '20G'])
+            self._setup_vm(zephyr_base_path)
+        elif status == 'stopped':
+            print(f"Starting Multipass VM '{self.vm_name}'...")
+            self._run_cmd(['multipass', 'start', self.vm_name])
             if not self._is_setup():
-                self._setup_vm()
+                self._setup_vm(zephyr_base_path)
+        elif status == 'running':
+            if not self._is_setup():
+                self._setup_vm(zephyr_base_path)
             else:
                 print("VM is ready.")
 
-    def _setup_vm(self):
+    def _setup_vm(self, zephyr_base_path=None):
         print("Setting up VM dependencies and Zephyr SDK...")
+
+        # Detect SDK version from host workspace if available
+        sdk_version = "0.17.0"  # Default fallback
+        if zephyr_base_path:
+            sdk_version_file = os.path.join(zephyr_base_path, "SDK_VERSION")
+            if os.path.exists(sdk_version_file):
+                try:
+                    with open(sdk_version_file, 'r') as f:
+                        sdk_version = f.read().strip()
+                    print(f"Detected Zephyr SDK version: {sdk_version}")
+                except Exception as e:
+                    print(f"Warning: Could not read SDK_VERSION file at {sdk_version_file}: {e}")
+                    print(f"Using default SDK version: {sdk_version}")
         
         # 1. Install packages from user's verified list
         packages = [
@@ -100,30 +106,30 @@ class MultipassVM:
         self.exec_shell(install_cmd)
 
         # 2. Install Zephyr SDK (Architecture-aware)
-        sdk_setup = """
+        sdk_setup = f"""
         set -e
         ARCH=$(uname -m)
-        SDK_VERSION="0.17.0"
+        SDK_VERSION="{sdk_version}"
         if [ "$ARCH" = "x86_64" ]; then
-            SDK_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${SDK_VERSION}/zephyr-sdk-${SDK_VERSION}_linux-x86_64_minimal.tar.xz"
+            SDK_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${{SDK_VERSION}}/zephyr-sdk-${{SDK_VERSION}}_linux-x86_64_minimal.tar.xz"
         elif [ "$ARCH" = "aarch64" ]; then
-            SDK_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${SDK_VERSION}/zephyr-sdk-${SDK_VERSION}_linux-aarch64_minimal.tar.xz"
+            SDK_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${{SDK_VERSION}}/zephyr-sdk-${{SDK_VERSION}}_linux-aarch64_minimal.tar.xz"
         else
             echo "Unsupported architecture: $ARCH"
             exit 1
         fi
         
         if [ ! -d /home/ubuntu/zephyr-sdk ]; then
-            echo "Downloading and installing Zephyr SDK v${SDK_VERSION} for $ARCH..."
-            wget -q --show-progress $SDK_URL -O /tmp/sdk.tar.xz
+            echo "Downloading and installing Zephyr SDK v${{SDK_VERSION}} for ${{ARCH}}..."
+            wget -q --show-progress ${{SDK_URL}} -O /tmp/sdk.tar.xz
             cd /home/ubuntu
             tar xf /tmp/sdk.tar.xz
             # Correcting the directory name based on extraction results
-            if [ -d zephyr-sdk-${SDK_VERSION} ]; then
-                mv zephyr-sdk-${SDK_VERSION} /home/ubuntu/zephyr-sdk
+            if [ -d zephyr-sdk-${{SDK_VERSION}} ]; then
+                mv zephyr-sdk-${{SDK_VERSION}} /home/ubuntu/zephyr-sdk
             else
                 # Fallback in case the name is different
-                mv zephyr-sdk-${SDK_VERSION}_linux-${ARCH}_minimal /home/ubuntu/zephyr-sdk
+                mv zephyr-sdk-${{SDK_VERSION}}_linux-${{ARCH}}_minimal /home/ubuntu/zephyr-sdk
             fi
             rm /tmp/sdk.tar.xz
             /home/ubuntu/zephyr-sdk/setup.sh -c
