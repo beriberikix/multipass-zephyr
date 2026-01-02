@@ -154,7 +154,9 @@ class MultipassVM:
         env_cmds = [
             "echo 'export ZEPHYR_TOOLCHAIN_VARIANT=zephyr' >> /home/ubuntu/.bashrc",
             "echo 'export ZEPHYR_SDK_INSTALL_DIR=/home/ubuntu/zephyr-sdk' >> /home/ubuntu/.bashrc",
-            "echo 'export PATH=$PATH:$HOME/.local/bin' >> /home/ubuntu/.bashrc"
+            "echo 'export PATH=$PATH:$HOME/.local/bin' >> /home/ubuntu/.bashrc",
+            "ccache --max-size=5G",
+            "ccache --set-config=cache_dir=/home/ubuntu/.ccache"
         ]
         for cmd in env_cmds:
             self._run_cmd(['multipass', 'exec', self.vm_name, '--', 'bash', '-c', cmd])
