@@ -67,7 +67,7 @@ class MultipassVM:
         status = self.get_status()
         if status == 'not-found':
             print(f"Creating Multipass VM '{self.vm_name}'...")
-            self._run_cmd(['multipass', 'launch', '24.04', '--name', self.vm_name, '--cpus', '2', '--mem', '4G', '--disk', '20G'])
+            self._run_cmd(['multipass', 'launch', '24.04', '--name', self.vm_name, '--cpus', '2', '--memory', '4G', '--disk', '20G'])
             self._setup_vm(zephyr_base_path)
         elif status == 'stopped':
             print(f"Starting Multipass VM '{self.vm_name}'...")
