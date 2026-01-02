@@ -34,6 +34,7 @@ class VBuild(WestCommand):
         parser.add_argument('-b', '--board', help='Board to build for')
         parser.add_argument('--pull', '--sync', dest='pull', action='store_true', help='Pull build artifacts from VM to host after build')
         parser.add_argument('-p', '--pristine', action='store_true', help='Remove existing build directory in VM before building')
+        parser.add_argument('--no-sync', action='store_true', help='Skip rsync to local storage, build directly from mount')
 
         return parser
 
@@ -101,6 +102,21 @@ class VBuild(WestCommand):
         vm_source_dir = get_vm_path(source_dir)
         vm_zephyr_base = get_vm_path(zephyr_base)
 
+        # Performance optimization: Sync to local storage
+        if not args.no_sync:
+            vm_local_root = "/home/ubuntu/src"
+            vm.sync_to_local(vm_workspace, vm_local_root)
+            
+            # Remap paths to local storage
+            def get_local_path(host_path):
+                rel = Path(host_path).relative_to(workspace_root)
+                return str(Path(vm_local_root) / rel)
+            
+            vm_source_dir = get_local_path(source_dir)
+            vm_zephyr_base = get_local_path(zephyr_base)
+            # Re-update the VM workspace root for command execution
+            vm_workspace = vm_local_root
+
         # Build dir resolution
         # Default to an internal VM path to avoid mount permission issues
         import hashlib
@@ -134,7 +150,8 @@ class VBuild(WestCommand):
         log.inf(f"Running build in VM '{args.vm_name}'...")
         
         # Execute from workspace root in VM
-        env_setup = f"export ZEPHYR_BASE={vm_zephyr_base}"
+        # Enable ccache natively as per plan
+        env_setup = f"export ZEPHYR_BASE={vm_zephyr_base} && export CCACHE=1"
         full_command = f"cd {vm_workspace} && {env_setup} && {' '.join(west_cmd)}"
         
         rc = vm.exec_shell(full_command)

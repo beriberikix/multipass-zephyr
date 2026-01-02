@@ -215,5 +215,21 @@ class MultipassVM:
         print(f"Deleting directory {vm_path} in VM...")
         self.exec_shell(f"rm -rf {vm_path}")
 
+    def sync_to_local(self, vm_mount_path, vm_local_path):
+        """Rsync from mount to local storage inside VM."""
+        print(f"Syncing {vm_mount_path} to {vm_local_path}...")
+        # Ensure target directory exists
+        self.exec_shell(f"mkdir -p {vm_local_path}")
+        # Standard rsync with common ignores
+        sync_cmd = f'''
+            rsync -a --delete \
+                --exclude='.git' \
+                --exclude='build' \
+                --exclude='__pycache__' \
+                --exclude='*.pyc' \
+                {vm_mount_path}/ {vm_local_path}/
+        '''
+        self.exec_shell(sync_cmd)
+
     def is_multipass_installed(self):
         return shutil.which('multipass') is not None
