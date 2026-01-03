@@ -74,12 +74,15 @@ class MultipassVM:
         print("  [VM] Dependencies and SDK verified.")
         return True
 
-    def ensure_vm(self, zephyr_base_path=None):
+    def ensure_vm(self, zephyr_base_path=None, cpus=None, memory=None):
         status = self.get_status()
+        target_cpus = cpus or self.default_cpus
+        target_mem = memory or self.default_memory
+
         if status == 'not-found':
             print(f"Creating Multipass VM '{self.vm_name}'...")
-            # Use default resources for initial launch, will scale up later if needed
-            self._run_cmd(['multipass', 'launch', '24.04', '--name', self.vm_name, '--cpus', str(self.default_cpus), '--memory', self.default_memory, '--disk', self.disk])
+            self._run_cmd(['multipass', 'launch', '24.04', '--name', self.vm_name, 
+                           '--cpus', str(target_cpus), '--memory', target_mem, '--disk', self.disk])
             self._setup_vm(zephyr_base_path)
         elif status == 'stopped':
             print(f"Starting Multipass VM '{self.vm_name}'...")
@@ -137,10 +140,16 @@ class MultipassVM:
 
     def ensure_resources(self, profile='low'):
         """Apply high or low resource profile to the VM."""
+        status = self.get_status()
         if profile == 'high':
             target_cpus, target_mem = self.get_host_resources()
         else:
             target_cpus, target_mem = self.default_cpus, self.default_memory
+
+        if status == 'not-found':
+            # Store targets in instance for ensure_vm to find if it follows
+            self.target_cpus, self.target_memory = target_cpus, target_mem
+            return
 
         current_cpus, current_mem = self.get_current_resources()
         
@@ -162,6 +171,11 @@ class MultipassVM:
 
     def _setup_vm(self, zephyr_base_path=None):
         print("Setting up VM dependencies and Zephyr SDK...")
+
+        # BUG: On Ubuntu 24.04, Multipass mount helper can fail after resource restarts.
+        # Installing multipass-sshfs manually is the official workaround.
+        print("  [VM] Installing mount helpers (Multipass bug workaround)...")
+        self.exec_shell("sudo apt update && sudo apt install -y sshfs snapd && sudo snap install multipass-sshfs", check=False)
 
         # Detect SDK version from host workspace if available
         sdk_version = "0.17.0"  # Default fallback

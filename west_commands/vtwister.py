@@ -68,7 +68,10 @@ class VTwister(WestCommand):
         
         workspace_root = str(Path(workspace_root).resolve())
 
-        vm.ensure_vm(zephyr_base)
+        # Pass target resources if they were set by ensure_resources
+        target_cpus = getattr(vm, 'target_cpus', None)
+        target_mem = getattr(vm, 'target_memory', None)
+        vm.ensure_vm(zephyr_base, cpus=target_cpus, memory=target_mem)
 
         # VM Mount points
         vm_workspace = '/mnt/workspace_vbuild'

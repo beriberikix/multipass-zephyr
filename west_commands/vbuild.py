@@ -70,7 +70,10 @@ class VBuild(WestCommand):
         
         workspace_root = str(Path(workspace_root).resolve())
 
-        vm.ensure_vm(zephyr_base)
+        # Pass target resources if they were set by ensure_resources
+        target_cpus = getattr(vm, 'target_cpus', None)
+        target_mem = getattr(vm, 'target_memory', None)
+        vm.ensure_vm(zephyr_base, cpus=target_cpus, memory=target_mem)
 
         # Determine source and build dirs
         source_dir = args.source_dir
