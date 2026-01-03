@@ -36,7 +36,8 @@ class MultipassVM:
 
     def _get_env_setup(self):
         # Explicitly define paths and variables to avoid bashrc sourcing issues
-        paths = "export PATH=$PATH:$HOME/.local/bin"
+        # Prioritize venv if it exists
+        paths = "export PATH=/home/ubuntu/.venv/bin:$PATH:$HOME/.local/bin"
         envs = "export ZEPHYR_TOOLCHAIN_VARIANT=zephyr && export ZEPHYR_SDK_INSTALL_DIR=/home/ubuntu/zephyr-sdk && export PIP_BREAK_SYSTEM_PACKAGES=1"
         return f"{paths} && {envs}"
 
@@ -148,8 +149,13 @@ class MultipassVM:
             print("FATAL: Zephyr SDK installation failed - directory not found.")
             raise RuntimeError("Zephyr SDK installation failed")
 
-        # 3. Install west
-        self.exec_shell("pip3 install --user west --break-system-packages")
+        # 3. Install uv and setup venv
+        print("Installing uv and setting up virtual environment...")
+        self.exec_shell("curl -LsSf https://astral.sh/uv/install.sh | sh")
+        self.exec_shell("export PATH=$PATH:$HOME/.local/bin && uv venv /home/ubuntu/.venv")
+        
+        # 4. Install west into venv
+        self.exec_shell("uv pip install west")
 
         # 4. Set persistent environment variables (best effort for interactive sessions)
         env_cmds = [
@@ -167,16 +173,21 @@ class MultipassVM:
         self.exec_shell(f"export ZEPHYR_BASE={vm_zephyr_base} && cd {vm_workspace} && west zephyr-export")
 
     def west_packages_pip_install(self, vm_workspace, vm_zephyr_base):
-        print("Installing Python dependencies...")
-        # Method 1: West packages pip (preferred)
-        # Note: west packages pip doesn't always support passing flags well
-        self.exec_shell(f"export ZEPHYR_BASE={vm_zephyr_base} && cd {vm_workspace} && west packages pip --install -- --break-system-packages", check=False)
+        print("Installing Python dependencies (using uv)...")
+        # Use uv for all requirement files found in zephyr
+        # This is significantly faster than west packages pip
+        req_files = [
+            f"{vm_zephyr_base}/scripts/requirements.txt",
+            f"{vm_zephyr_base}/scripts/requirements-base.txt",
+            f"{vm_zephyr_base}/scripts/requirements-build-test.txt",
+            f"{vm_zephyr_base}/scripts/requirements-run-test.txt",
+            f"{vm_zephyr_base}/scripts/requirements-extras.txt",
+            f"{vm_zephyr_base}/scripts/requirements-compliance.txt"
+        ]
         
-        # Method 2: Direct pip install of requirements.txt (fallback)
-        self.exec_shell(f"pip3 install --user -r {vm_zephyr_base}/scripts/requirements.txt --break-system-packages", check=False)
-        
-        # Explicitly install pyelftools as it frequently causes issues
-        self.exec_shell("pip3 install --user pyelftools --break-system-packages", check=False)
+        # Build one big install command for uv
+        req_args = " ".join([f"-r {f}" for f in req_files])
+        self.exec_shell(f"uv pip install {req_args} pyelftools")
 
     def mount(self, host_path, vm_path):
         print(f"Mounting {host_path} to {vm_path}...")
