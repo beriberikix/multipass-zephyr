@@ -125,11 +125,7 @@ class VTwister(WestCommand):
         full_command = f"cd {vm_workspace} && export ZEPHYR_BASE={vm_zephyr_base} && {env_setup} && {' '.join(twister_cmd)}"
         
         rc = vm.exec_shell(full_command)
-        if rc != 0:
-            log.die(f"Twister failed with return code {rc}")
         
-        log.inf("Twister completed successfully.")
-
         if args.pull_results:
             log.inf(f"Pulling results from {vm_outdir} to host...")
             
@@ -143,8 +139,13 @@ class VTwister(WestCommand):
                 print(f"Syncing results back to mount...")
                 # Ensure the target directory exists in mount
                 vm.exec_shell(f"mkdir -p {vm_mount_workspace}/{vm_outdir}")
-                sync_back_cmd = f"rsync -a {vm_abs_outdir}/ {vm_mount_workspace}/{vm_outdir}/"
+                sync_back_cmd = f"rsync -a --delete {vm_abs_outdir}/ {vm_mount_workspace}/{vm_outdir}/"
                 vm.exec_shell(sync_back_cmd)
             
             host_outdir = args.outdir or os.path.join(os.getcwd(), 'twister-out')
             log.inf(f"Results available on host at: {host_outdir}")
+
+        if rc != 0:
+            log.die(f"Twister failed with return code {rc}")
+        
+        log.inf("Twister completed successfully.")
