@@ -105,6 +105,9 @@ The proxy is optimized for high-performance development, especially on macOS whe
 - **Source Sync (High Speed)**: Instead of building directly from a slow mount, `vbuild` rsyncs your workspace to the VM's native filesystem. This provides a **10x+ speedup** on Apple Silicon/Intel Mac.
 - **Incremental Sync**: Only changed files are synchronized before each build, typically taking only a few seconds.
 - **Native `ccache`**: `ccache` is pre-configured in the VM with a 5GB persistent cache, speeding up SDK and repeated project compilation significantly.
+- **Dynamic Resource Scaling**: The VM automatically scales up its CPU and memory (up to 75% of host capacity) during builds and tests (`vbuild`/`vtwister`) and scales down to a lightweight profile (2 CPUs, 4GB RAM) when idle.
+  - Use `--keep-warm` with `vbuild` or `vtwister` to prevent scaling down after a run, speeding up subsequent commands.
+  - Parallelism is automatically maximized (`ninja -j<cpus>`) based on the scaled-up resource count.
 
 ## How it Works
 
