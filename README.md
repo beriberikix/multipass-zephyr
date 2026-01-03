@@ -38,8 +38,11 @@ Run `west update` to pull the project.
 Build a sample application:
 
 ```bash
-# Basic build
+# Basic build (fast: rsync + native storage by default)
 west vbuild -b native_sim/native/64 zephyr/samples/hello_world
+
+# Build directly from mount (slower, skip rsync)
+west vbuild --no-sync -b native_sim/native/64 zephyr/samples/hello_world
 
 # Build and sync artifacts back to the host's build/ directory
 west vbuild --sync -b native_sim/native/64 zephyr/samples/hello_world
@@ -53,6 +56,7 @@ The first run will automatically:
 2. **Auto-detect** the required Zephyr SDK version from your workspace's `SDK_VERSION` file and install it.
 3. Install all necessary build dependencies.
 4. Mount your workspace root into the VM.
+5. **Sync** your source code to the VM's local storage for native-speed builds.
 
 ### Running
 
@@ -74,10 +78,22 @@ west vclean
 west vclean --all
 ```
 
+## Performance Features
+
+The proxy is optimized for high-performance development, especially on macOS where mount performance is typically a bottleneck:
+
+- **Source Sync (High Speed)**: Instead of building directly from a slow mount, `vbuild` rsyncs your workspace to the VM's native filesystem. This provides a **10x+ speedup** on Apple Silicon/Intel Mac.
+- **Incremental Sync**: Only changed files are synchronized before each build, typically taking only a few seconds.
+- **Native `ccache`**: `ccache` is pre-configured in the VM with a 5GB persistent cache, speeding up SDK and repeated project compilation significantly.
+
 ## How it Works
 
-- **Storage**: Builds are performed in the VM's internal filesystem (under `/home/ubuntu/builds/`) to ensure maximum speed and avoid permission issues common with network mounts.
-- **Hashing**: Source directory paths are hashed to generate unique build directories in the VM.
+- **Storage Architecture**: 
+  1. Workspace is mounted to `/mnt/workspace_vbuild`.
+  2. Workspace is synchronized to `/home/ubuntu/src/` (native filesystem).
+  3. Builds are performed in `/home/ubuntu/builds/`.
+  This triple-tier approach ensures the IDE sees local files, but the compiler runs at 100% native NVMe speeds.
+- **Hashing**: Source directory paths are hashed to generate unique build directories in the VM, allowing concurrent work on multiple projects.
 - **SDK Auto-Detection**: Automatically reads the `SDK_VERSION` file from your Zephyr base directory to ensure the toolchain matches your project's requirements.
 - **Artifact Syncing**: Pulls key binaries (`zephyr.elf`, `zephyr.exe`, `zephyr.map`) back to your host when using the `--sync` flag.
 
