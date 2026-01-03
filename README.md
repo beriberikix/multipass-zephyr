@@ -64,6 +64,9 @@ Run the simulated application:
 
 ```bash
 west vrun zephyr/samples/hello_world
+
+# Force network setup (or skip with --no-net)
+west vrun --net zephyr/samples/net/sockets/echo_server
 ```
 
 ### Cleaning
@@ -82,6 +85,7 @@ west vclean --all
 
 The proxy is optimized for high-performance development, especially on macOS where mount performance is typically a bottleneck:
 
+- **Networking (TAP/TUN)**: Automatically detects `native_sim` targets and runs `net-setup.sh` inside the VM. This enables full networking support for samples like `echo_server`.
 - **Source Sync (High Speed)**: Instead of building directly from a slow mount, `vbuild` rsyncs your workspace to the VM's native filesystem. This provides a **10x+ speedup** on Apple Silicon/Intel Mac.
 - **Incremental Sync**: Only changed files are synchronized before each build, typically taking only a few seconds.
 - **Native `ccache`**: `ccache` is pre-configured in the VM with a 5GB persistent cache, speeding up SDK and repeated project compilation significantly.
