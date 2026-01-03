@@ -14,3 +14,8 @@ west-commands:
       - name: vclean
         class: VClean
         help: Clean build directories in the Multipass VM.
+  - file: west_commands/vtwister.py
+    commands:
+      - name: vtwister
+        class: VTwister
+        help: Run Zephyr twister tests in a Multipass VM.

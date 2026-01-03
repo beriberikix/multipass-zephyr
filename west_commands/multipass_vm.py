@@ -248,6 +248,7 @@ class MultipassVM:
                 --exclude='/.git/' \
                 --exclude='/build/' \
                 --exclude='/builds/' \
+                --exclude='/twister-out*/' \
                 --exclude='__pycache__/' \
                 --exclude='*.pyc' \
                 --exclude='*.o' \
