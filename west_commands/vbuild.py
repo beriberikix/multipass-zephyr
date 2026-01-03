@@ -82,7 +82,7 @@ class VBuild(WestCommand):
         build_dir = str(Path(build_dir).resolve())
 
         # VM Mount points
-        vm_workspace = '/mnt/workspace'
+        vm_workspace = '/mnt/workspace_vbuild'
         
         # Mounting the entire workspace
         vm.mount(workspace_root, vm_workspace)
