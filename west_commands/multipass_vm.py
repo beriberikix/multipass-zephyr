@@ -100,7 +100,8 @@ class MultipassVM:
         packages = [
             "git", "cmake", "ninja-build", "gperf", "ccache", "device-tree-compiler",
             "wget", "file", "libmagic1", "xz-utils", "python3-dev", "python3-pip",
-            "python3-setuptools", "python3-wheel", "build-essential", "libsdl2-dev"
+            "python3-setuptools", "python3-wheel", "build-essential", "libsdl2-dev",
+            "net-tools", "iproute2", "bridge-utils"
         ]
         install_cmd = f"sudo apt-get update && sudo apt-get install -y --no-install-recommends {' '.join(packages)}"
         self.exec_shell(install_cmd)
@@ -235,6 +236,36 @@ class MultipassVM:
                 {vm_mount_path}/ {vm_local_path}/
         '''
         self.exec_shell(sync_cmd)
+        
+    def setup_native_sim_network(self):
+        """Set up TAP networking for native_sim if not already configured."""
+        print("Setting up TAP network interface for native_sim...")
+        
+        # Check if zeth interface already exists
+        check_cmd = "ip link show zeth 2>/dev/null"
+        # We use stream=False and check=False to capture the return code without raising an error
+        result = self.exec_shell(check_cmd, stream=False, check=False)
+        
+        # If result is a CompletedProcess object (from _run_cmd via exec_shell(stream=False))
+        if hasattr(result, 'returncode') and result.returncode == 0:
+            print("TAP interface 'zeth' already configured.")
+            return
+        # Handle string return (stdout) if check was True or returncode wasn't available
+        elif isinstance(result, str) and "zeth" in result:
+             print("TAP interface 'zeth' already configured.")
+             return
+
+        # Run net-setup.sh from tools/net-tools
+        # Note: We assume the workspace is already synced to /home/ubuntu/src
+        net_tools_path = "/home/ubuntu/src/tools/net-tools"
+        setup_cmd = f"cd {net_tools_path} && sudo ./net-setup.sh"
+        
+        print(f"Running {setup_cmd}...")
+        rc = self.exec_shell(setup_cmd)
+        if rc != 0:
+            log.wrn("Network setup failed. Networking samples may not work correctly.")
+        else:
+            print("TAP interface configured successfully.")
 
     def is_multipass_installed(self):
         return shutil.which('multipass') is not None

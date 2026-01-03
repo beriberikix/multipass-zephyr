@@ -29,9 +29,19 @@ class VRun(WestCommand):
 
         parser.add_argument('--vm-name', default='zephyr-vm', help='Name of the Multipass VM to use')
         parser.add_argument('-d', '--build-dir', help='Build directory containing zephyr.elf')
+        parser.add_argument('--net', action='store_true', help='Force network setup (TAP) for native_sim')
+        parser.add_argument('--no-net', action='store_true', help='Skip network setup')
         parser.add_argument('source_dir_pos', nargs='?', help='Source directory used for build hashing')
 
         return parser
+
+    def _is_native_sim_binary(self, vm_binary_path):
+        """Check if binary is for native_sim board."""
+        if 'native_sim' in vm_binary_path:
+            return True
+        if vm_binary_path.endswith('.exe'):
+            return True
+        return False
 
     def do_run(self, args, unknown_args):
         vm = MultipassVM(args.vm_name)
@@ -75,7 +85,7 @@ class VRun(WestCommand):
             host_build_dir = str(Path(args.build_dir).resolve())
             try:
                 rel = Path(host_build_dir).relative_to(workspace_root)
-                vm_build_dir = str(Path('/mnt/workspace') / rel)
+                vm_build_dir = str(Path('/mnt/workspace_vbuild') / rel)
             except ValueError:
                 import hashlib
                 h = hashlib.md5(host_build_dir.encode()).hexdigest()[:8]
@@ -94,6 +104,19 @@ class VRun(WestCommand):
         
         if not exe:
              log.die("Could not find zephyr.exe or zephyr.elf in VM.")
+
+        # Networking setup
+        should_setup_network = False
+        if args.net:
+            should_setup_network = True
+        elif args.no_net:
+            should_setup_network = False
+        else:
+            # Auto-detect based on binary path
+            should_setup_network = self._is_native_sim_binary(exe)
+
+        if should_setup_network:
+            vm.setup_native_sim_network()
 
         log.inf(f"Running {exe} in VM '{args.vm_name}'...")
         
