@@ -9,6 +9,7 @@ Zephyr's `native_sim` is a powerful tool for developing and testing applications
 This tool provides a transparent bridge:
 - **`west vbuild`**: Compiles your code inside a streamlined Linux VM.
 - **`west vrun`**: Executes the result in the VM and streams the output to your terminal.
+- **`west vtwister`**: Proxies `west twister` to the VM for large-scale test suite execution.
 
 ## Prerequisites
 
@@ -67,6 +68,21 @@ west vrun zephyr/samples/hello_world
 
 # Force network setup (or skip with --no-net)
 west vrun --net zephyr/samples/net/sockets/echo_server
+```
+
+### Testing (Twister)
+
+Run Zephyr test suites in the VM:
+
+```bash
+# Run a specific test suite
+west vtwister -T zephyr/tests/kernel/fifo -p native_sim/native/64
+
+# Run and pull results back to the host (twister-out/)
+west vtwister -T zephyr/samples/hello_world -p native_sim/native/64 --pull-results
+
+# Pass any twister argument transparently
+west vtwister --scenario kernel.fifo.poll -vv
 ```
 
 ### Cleaning
