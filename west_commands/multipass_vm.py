@@ -45,7 +45,7 @@ class MultipassVM:
         env = self._get_env_setup()
         
         # Check tools
-        for cmd in ["west", "cmake", "ninja"]:
+        for cmd in ["west", "cmake", "ninja", "brctl"]:
             check_cmd = f"multipass exec {self.vm_name} -- bash -c '{env} && which {cmd}'"
             res = subprocess.run(check_cmd, shell=True, capture_output=True)
             if res.returncode != 0:
