@@ -258,7 +258,7 @@ class MultipassVM:
         # Run net-setup.sh from tools/net-tools
         # Note: We assume the workspace is already synced to /home/ubuntu/src
         net_tools_path = "/home/ubuntu/src/tools/net-tools"
-        setup_cmd = f"cd {net_tools_path} && sudo ./net-setup.sh"
+        setup_cmd = f"cd {net_tools_path} && sudo ./net-setup.sh up"
         
         print(f"Running {setup_cmd}...")
         rc = self.exec_shell(setup_cmd)
