@@ -3,6 +3,8 @@ import os
 import json
 import sys
 import shutil
+import platform
+import multiprocessing
 from pathlib import Path
 from west import log
 
@@ -10,8 +12,8 @@ class MultipassVM:
     def __init__(self, vm_name='zephyr-vm'):
         self.vm_name = vm_name
         self.ubuntu_version = '24.04'
-        self.cpus = 2
-        self.memory = '4G'
+        self.default_cpus = 2
+        self.default_memory = '4G'
         self.disk = '20G'
 
     def _run_cmd(self, cmd, capture_output=True, check=True):
@@ -76,7 +78,8 @@ class MultipassVM:
         status = self.get_status()
         if status == 'not-found':
             print(f"Creating Multipass VM '{self.vm_name}'...")
-            self._run_cmd(['multipass', 'launch', '24.04', '--name', self.vm_name, '--cpus', '2', '--memory', '4G', '--disk', '20G'])
+            # Use default resources for initial launch, will scale up later if needed
+            self._run_cmd(['multipass', 'launch', '24.04', '--name', self.vm_name, '--cpus', str(self.default_cpus), '--memory', self.default_memory, '--disk', self.disk])
             self._setup_vm(zephyr_base_path)
         elif status == 'stopped':
             print(f"Starting Multipass VM '{self.vm_name}'...")
@@ -88,6 +91,74 @@ class MultipassVM:
                 self._setup_vm(zephyr_base_path)
             else:
                 print("VM is ready.")
+
+    def get_host_resources(self):
+        """Detect host resources safely for cross-platform support."""
+        # CPUs
+        total_cpus = multiprocessing.cpu_count()
+        safe_cpus = max(2, total_cpus - 2)
+        
+        # Memory (Bytes)
+        total_mem_bytes = 0
+        sys_pf = platform.system()
+        try:
+            if sys_pf == "Darwin":
+                res = subprocess.run(["sysctl", "-n", "hw.memsize"], capture_output=True, text=True)
+                total_mem_bytes = int(res.stdout.strip())
+            elif sys_pf == "Windows":
+                res = subprocess.run(["wmic", "ComputerSystem", "get", "TotalPhysicalMemory"], capture_output=True, text=True)
+                lines = res.stdout.strip().splitlines()
+                if len(lines) > 1:
+                    total_mem_bytes = int(lines[1].strip())
+            elif sys_pf == "Linux":
+                with open("/proc/meminfo", "r") as f:
+                    for line in f:
+                        if "MemTotal" in line:
+                            total_mem_bytes = int(line.split()[1]) * 1024
+                            break
+        except Exception as e:
+            print(f"Warning: Failed to detect host memory: {e}")
+            total_mem_bytes = 8 * 1024 * 1024 * 1024 # Fallback 8GB
+        
+        # Calculation: 75% of total, capped at Total - 4GB
+        limit_mem_bytes = min(int(total_mem_bytes * 0.75), total_mem_bytes - (4 * 1024 * 1024 * 1024))
+        safe_memory_gb = max(4, int(limit_mem_bytes / (1024 * 1024 * 1024)))
+        
+        return safe_cpus, f"{safe_memory_gb}G"
+
+    def get_current_resources(self):
+        """Get current VM CPU and Memory settings."""
+        try:
+            cpus_res = self._run_cmd(['multipass', 'get', f'local.{self.vm_name}.cpus'])
+            mem_res = self._run_cmd(['multipass', 'get', f'local.{self.vm_name}.memory'])
+            return int(cpus_res.stdout.strip()), mem_res.stdout.strip()
+        except:
+            return None, None
+
+    def ensure_resources(self, profile='low'):
+        """Apply high or low resource profile to the VM."""
+        if profile == 'high':
+            target_cpus, target_mem = self.get_host_resources()
+        else:
+            target_cpus, target_mem = self.default_cpus, self.default_memory
+
+        current_cpus, current_mem = self.get_current_resources()
+        
+        # Only restart if there's a significant change
+        if current_cpus != target_cpus or current_mem != target_mem:
+            print(f"Applying '{profile}' resource profile ({target_cpus} CPUs, {target_mem} RAM)...")
+            status = self.get_status()
+            if status == 'running':
+                print("Stopping VM to reconfigure...")
+                self._run_cmd(['multipass', 'stop', self.vm_name])
+            
+            self._run_cmd(['multipass', 'set', f'local.{self.vm_name}.cpus={target_cpus}'])
+            self._run_cmd(['multipass', 'set', f'local.{self.vm_name}.memory={target_mem}'])
+            
+            print("Starting VM with new configuration...")
+            self._run_cmd(['multipass', 'start', self.vm_name])
+        else:
+            print(f"Already using '{profile}' resource profile.")
 
     def _setup_vm(self, zephyr_base_path=None):
         print("Setting up VM dependencies and Zephyr SDK...")

@@ -33,6 +33,7 @@ class VTwister(WestCommand):
         parser.add_argument('--no-sync', action='store_true', help='Skip rsync to local storage, run directly from mount')
         parser.add_argument('--pull-results', action='store_true', help='Pull twister-out directory from VM to host after run')
         parser.add_argument('-O', '--outdir', help='Output directory for twister results')
+        parser.add_argument('--keep-warm', action='store_true', help='Do not scale down VM resources after run')
 
         return parser
 
@@ -41,6 +42,16 @@ class VTwister(WestCommand):
         if not vm.is_multipass_installed():
             log.die("Multipass is not installed. Please install it from https://multipass.run/")
 
+        # Dynamic Resource Scaling: Scale UP
+        vm.ensure_resources('high')
+        
+        try:
+            self._do_run_internal(vm, args, unknown_args)
+        finally:
+            if not args.keep_warm:
+                vm.ensure_resources('low')
+
+    def _do_run_internal(self, vm, args, unknown_args):
         # Determine paths
         zephyr_base = os.environ.get('ZEPHYR_BASE')
         if not zephyr_base:
@@ -102,6 +113,9 @@ class VTwister(WestCommand):
         # Suggested by user: install python packages after mount/sync
         vm.west_packages_pip_install(vm_workspace, vm_zephyr_base)
 
+        # Thread maximization: Get VM CPUS
+        vm_cpus, _ = vm.get_current_resources()
+
         # Build twister command
         twister_cmd = ['west', 'twister']
         
@@ -116,6 +130,19 @@ class VTwister(WestCommand):
                 vm_outdir = args.outdir
             
             twister_cmd.extend(['-O', vm_outdir])
+
+        # Maximize threads for Twister
+        if vm_cpus:
+            # Twister uses --jobs
+            # Check if user already provided --jobs / -j
+            has_jobs = False
+            for u_arg in unknown_args:
+                if u_arg == '--jobs' or u_arg == '-j' or u_arg.startswith('--jobs=') or u_arg.startswith('-j'):
+                    has_jobs = True
+                    break
+            
+            if not has_jobs:
+                twister_cmd.extend(['--jobs', str(vm_cpus)])
 
         twister_cmd.extend(unknown_args)
 

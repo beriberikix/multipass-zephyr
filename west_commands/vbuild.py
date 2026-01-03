@@ -35,6 +35,7 @@ class VBuild(WestCommand):
         parser.add_argument('--pull', '--sync', dest='pull', action='store_true', help='Pull build artifacts from VM to host after build')
         parser.add_argument('-p', '--pristine', action='store_true', help='Remove existing build directory in VM before building')
         parser.add_argument('--no-sync', action='store_true', help='Skip rsync to local storage, build directly from mount')
+        parser.add_argument('--keep-warm', action='store_true', help='Do not scale down VM resources after build')
 
         return parser
 
@@ -43,6 +44,16 @@ class VBuild(WestCommand):
         if not vm.is_multipass_installed():
             log.die("Multipass is not installed. Please install it from https://multipass.run/")
 
+        # Dynamic Resource Scaling: Scale UP
+        vm.ensure_resources('high')
+        
+        try:
+            self._do_run_internal(vm, args, unknown_args)
+        finally:
+            if not args.keep_warm:
+                vm.ensure_resources('low')
+
+    def _do_run_internal(self, vm, args, unknown_args):
         # Determine paths
         zephyr_base = os.environ.get('ZEPHYR_BASE')
         if not zephyr_base:
@@ -138,6 +149,9 @@ class VBuild(WestCommand):
         # Suggested by user: install python packages after mount
         vm.west_packages_pip_install(vm_workspace, vm_zephyr_base)
 
+        # Thread maximization: Get VM CPUS
+        vm_cpus, _ = vm.get_current_resources()
+
         # Build command
         west_cmd = ['west', 'build']
         west_cmd.extend(['-s', vm_source_dir])
@@ -145,6 +159,10 @@ class VBuild(WestCommand):
         if args.board:
             west_cmd.extend(['-b', args.board])
         
+        # Maximize threads for Ninja
+        if vm_cpus:
+            west_cmd.extend(['--', f'-j{vm_cpus}'])
+
         west_cmd.extend(remainder)
 
         log.inf(f"Running build in VM '{args.vm_name}'...")
