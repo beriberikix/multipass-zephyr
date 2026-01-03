@@ -163,8 +163,9 @@ class VBuild(WestCommand):
             west_cmd.extend(['-b', args.board])
         
         # Maximize threads for Ninja
+        # west build passes options to the underlying build tool (ninja) via -o
         if vm_cpus:
-            west_cmd.extend(['--', f'-j{vm_cpus}'])
+            west_cmd.extend([f'-o=-j{vm_cpus}'])
 
         west_cmd.extend(remainder)
 
