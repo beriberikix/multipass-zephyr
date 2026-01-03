@@ -226,9 +226,11 @@ class MultipassVM:
         sync_cmd = f'''
             rsync -a --delete \
                 --exclude='.git' \
-                --exclude='build' \
+                --exclude='build*' \
                 --exclude='__pycache__' \
                 --exclude='*.pyc' \
+                --exclude='*.o' \
+                --exclude='.cache' \
                 {vm_mount_path}/ {vm_local_path}/
         '''
         self.exec_shell(sync_cmd)
