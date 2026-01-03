@@ -80,11 +80,21 @@ class VBuild(WestCommand):
         remainder = []
         source_dir_found = False
         for arg in unknown_args:
-            if not source_dir_found and not arg.startswith('-') and os.path.isdir(arg):
-                source_dir = arg
-                source_dir_found = True
-            else:
-                remainder.append(arg)
+            if not source_dir_found and not arg.startswith('-'):
+                # Check relative to CWD
+                if os.path.isdir(arg):
+                    source_dir = arg
+                    source_dir_found = True
+                    continue
+                
+                # Check relative to workspace root
+                ws_rel_path = os.path.join(workspace_root, arg)
+                if os.path.isdir(ws_rel_path):
+                    source_dir = ws_rel_path
+                    source_dir_found = True
+                    continue
+            
+            remainder.append(arg)
         
         if not source_dir:
             source_dir = os.getcwd()
