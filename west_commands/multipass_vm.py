@@ -225,12 +225,13 @@ class MultipassVM:
         # Standard rsync with common ignores
         sync_cmd = f'''
             rsync -a --delete \
-                --exclude='.git' \
-                --exclude='build*' \
-                --exclude='__pycache__' \
+                --exclude='.git/' \
+                --exclude='build/' \
+                --exclude='builds/' \
+                --exclude='__pycache__/' \
                 --exclude='*.pyc' \
                 --exclude='*.o' \
-                --exclude='.cache' \
+                --exclude='.cache/' \
                 {vm_mount_path}/ {vm_local_path}/
         '''
         self.exec_shell(sync_cmd)
