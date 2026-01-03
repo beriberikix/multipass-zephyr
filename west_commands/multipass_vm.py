@@ -37,7 +37,7 @@ class MultipassVM:
     def _get_env_setup(self):
         # Explicitly define paths and variables to avoid bashrc sourcing issues
         paths = "export PATH=$PATH:$HOME/.local/bin"
-        envs = "export ZEPHYR_TOOLCHAIN_VARIANT=zephyr && export ZEPHYR_SDK_INSTALL_DIR=/home/ubuntu/zephyr-sdk"
+        envs = "export ZEPHYR_TOOLCHAIN_VARIANT=zephyr && export ZEPHYR_SDK_INSTALL_DIR=/home/ubuntu/zephyr-sdk && export PIP_BREAK_SYSTEM_PACKAGES=1"
         return f"{paths} && {envs}"
 
     def _is_setup(self):
@@ -223,16 +223,16 @@ class MultipassVM:
         print(f"Syncing {vm_mount_path} to {vm_local_path}...")
         # Ensure target directory exists
         self.exec_shell(f"mkdir -p {vm_local_path}")
-        # Standard rsync with common ignores
+        # Anchored rsync with common ignores (leading slash means root-relative)
         sync_cmd = f'''
             rsync -a --delete \
-                --exclude='.git/' \
-                --exclude='build/' \
-                --exclude='builds/' \
+                --exclude='/.git/' \
+                --exclude='/build/' \
+                --exclude='/builds/' \
                 --exclude='__pycache__/' \
                 --exclude='*.pyc' \
                 --exclude='*.o' \
-                --exclude='.cache/' \
+                --exclude='/.cache/' \
                 {vm_mount_path}/ {vm_local_path}/
         '''
         self.exec_shell(sync_cmd)
