@@ -46,12 +46,20 @@ class MultipassVM:
         env = self._get_env_setup()
         
         # Check tools
-        for cmd in ["west", "cmake", "ninja", "brctl"]:
+        for cmd in ["west", "cmake", "ninja", "brctl", "uv"]:
             check_cmd = f"multipass exec {self.vm_name} -- bash -c '{env} && which {cmd}'"
             res = subprocess.run(check_cmd, shell=True, capture_output=True)
             if res.returncode != 0:
                 print(f"  [VM] Component '{cmd}' not found. Setup required.")
                 return False
+        
+        # Check venv
+        print("  [VM] Checking for virtual environment...")
+        venv_check = f"multipass exec {self.vm_name} -- bash -c 'test -d /home/ubuntu/.venv'"
+        res = subprocess.run(venv_check, shell=True, capture_output=True)
+        if res.returncode != 0:
+            print("  [VM] Virtual environment not found. Setup required.")
+            return False
         
         # Check SDK
         print("  [VM] Checking for Zephyr SDK...")
