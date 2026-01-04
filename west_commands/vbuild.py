@@ -44,6 +44,10 @@ class VBuild(WestCommand):
         if not vm.is_multipass_installed():
             log.die("Multipass is not installed. Please install it from https://multipass.run/")
 
+        # Guard against common user error: passing --net to vbuild
+        if '--net' in unknown_args:
+            log.die("The --net flag is supported by 'west vrun', not 'west vbuild'. Did you mean to use 'west vrun' instead?")
+
         # Dynamic Resource Scaling: Scale UP
         vm.ensure_resources('high')
         
